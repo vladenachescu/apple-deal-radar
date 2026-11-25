@@ -1,0 +1,17 @@
+{
+  "name": "apple-deal-radar-ro",
+  "version": "1.0.0",
+  "description": "Monitor live pentru cele mai bune oferte la iPhone 16 Pro/Pro Max, iPhone 17/Pro/Pro Max și AirPods Pro 3 pe site-uri SH, refurbished, amanet și P2P (doar București), cu alerte pe email.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "check-once": "node src/checkOnce.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "express": "^4.21.2",
+    "nodemailer": "^6.9.16"
+  }
+}

@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="ro" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AppleRadar RO — Cele mai bune oferte SH, Refurbished &amp; Amanet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9" opacity="0.35"/>
+            <circle cx="12" cy="12" r="5" opacity="0.65"/>
+            <path d="M12 12L18.5 5.5" stroke-linecap="round"/>
+            <circle cx="12" cy="12" r="1.8" fill="currentColor"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">AppleRadar <span class="brand-ro">RO</span></div>
+          <div class="brand-sub">P2P Strict București · Refurbished · Amanet</div>
+        </div>
+      </div>
+
+      <div class="topbar-meta" id="topbarMeta">
+        <span class="meta-pill" id="lastScanPill">Se încarcă...</span>
+        <span class="meta-pill meta-pill--storage" id="storageBadge" title="Doar iPhone-uri cu minim 256GB stocare (modelele 128GB sunt excluse)">
+          💾 iPhone ≥ 256GB
+        </span>
+        <span class="meta-pill meta-pill--bucharest" id="bucharestBadge" title="Pe OLX, Publi24 și Vinted sunt păstrați doar vânzătorii verificați din București (AirPods exclus din P2P)">
+          📍 P2P: Strict București
+        </span>
+      </div>
+
+      <div class="topbar-actions">
+        <button class="btn btn-primary" id="btnScanNow">
+          <span class="btn-icon" id="scanSpinner">↻</span>
+          <span id="btnScanLabel">Scanează acum</span>
+        </button>
+        <button class="btn btn-secondary" id="btnOpenSettings">
+          <span class="status-dot" id="emailStatusDot"></span>
+          Setări &amp; Email
+        </button>
+        <button class="btn btn-ghost" id="btnOpenManual" title="Adaugă manual o ofertă (ex. de pe Facebook Marketplace)">
+          + Ofertă
+        </button>
+        <button class="btn btn-icon-only" id="btnToggleTheme" title="Schimbă tema (Întunecat / Luminos)" aria-label="Schimbă tema">
+          ☀
+        </button>
+      </div>
+    </div>
+
+    <!-- Live scan progress strip -->
+    <div class="scan-bar hidden" id="scanProgressBar">
+      <div class="container scan-bar-inner">
+        <div class="scan-bar-head">
+          <span class="scan-bar-title" id="scanBarTitle">Scanare în curs...</span>
+          <span class="scan-bar-count mono" id="scanBarCount">0 / 9</span>
+        </div>
+        <div class="scan-progress-track">
+          <div class="scan-progress-fill" id="scanProgressFill" style="width: 0%"></div>
+        </div>
+        <div class="scan-site-chips" id="scanSiteChips"></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main-content">
+    <!-- Active sub-threshold deals highlight banner -->
+    <section class="alert-banner hidden" id="alertBanner">
+      <div class="alert-banner-left">
+        <div class="alert-banner-badge">🔥 ALERTE ACTIVE</div>
+        <div>
+          <strong id="alertBannerTitle">Oferte sub pragul tău de preț!</strong>
+          <span id="alertBannerSub"></span>
+        </div>
+      </div>
+      <div class="alert-banner-actions">
+        <button class="btn btn-emerald btn-sm" id="btnFilterOnlyAlerts">Vezi doar ofertele sub prag</button>
+      </div>
+    </section>
+
+    <!-- 1. Hero Summary: Best deal per tracked product -->
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h1 class="section-title">Cele mai bune oferte acum</h1>
+          <p class="section-desc">Prețul minim găsit pentru fiecare model. Apasă pe un card pentru a filtra anunțurile.</p>
+        </div>
+        <div class="section-head-right">
+          <button class="btn btn-ghost btn-sm" id="btnClearModelFilter">Arată toate modelele</button>
+        </div>
+      </div>
+      <div class="hero-grid" id="heroGrid"></div>
+    </section>
+
+    <!-- 2. Matrix: Cheapest price per site per model -->
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">Cel mai bun preț pe fiecare site</h2>
+          <p class="section-desc">Comparație directă între P2P (strict vânzători din București), magazine refurbished și amanet. Apasă pe orice preț pentru a deschide oferta.</p>
+        </div>
+      </div>
+      <div class="card table-card">
+        <div class="table-scroll">
+          <table class="matrix-table" id="matrixTable"></table>
+        </div>
+      </div>
+
+      <!-- Facebook Marketplace Quick-Launch Bar -->
+      <div class="card fb-strip">
+        <div class="fb-strip-head">
+          <div class="fb-strip-title">
+            <span class="pill pill--fb">Facebook Marketplace</span>
+            <strong>Căutare rapidă București · iPhone ≥ 256GB</strong>
+          </div>
+          <span class="fb-strip-note">Facebook cere login în contul tău — AirPods Pro 3 sunt excluse de pe P2P (doar magazine verificate/amanet).</span>
+        </div>
+        <div class="fb-links-grid" id="fbLinksGrid"></div>
+      </div>
+    </section>
+
+    <!-- 3. Filterable & Sortable Listings Feed -->
+    <section class="section" id="listingsSection">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">Toate ofertele verificate <span class="count-badge mono" id="listingsCountBadge">0</span></h2>
+          <p class="section-desc">Filtrate automat contra huse, display-uri, piese, replici și vânzători P2P din afara Bucureștiului.</p>
+        </div>
+      </div>
+
+      <div class="card filter-bar">
+        <div class="filter-row">
+          <div class="segmented" id="categoryTabs">
+            <button class="seg-btn active" data-cat="all">Toate</button>
+            <button class="seg-btn" data-cat="p2p">P2P București</button>
+            <button class="seg-btn" data-cat="refurbished">Refurbished</button>
+            <button class="seg-btn" data-cat="amanet">Amanet</button>
+          </div>
+
+          <div class="filter-controls">
+            <select id="filterProduct" class="input-ctrl" aria-label="Filtrează după model">
+              <option value="all">Toate modelele</option>
+            </select>
+
+            <select id="filterSource" class="input-ctrl" aria-label="Filtrează după site">
+              <option value="all">Toate site-urile</option>
+            </select>
+
+            <input type="number" id="filterMaxPrice" class="input-ctrl input-price" placeholder="Preț max (RON)" min="0" step="100" />
+
+            <input type="search" id="filterSearch" class="input-ctrl input-search" placeholder="Caută (ex. 256GB, sigilat, sector 3)..." />
+
+            <select id="filterSort" class="input-ctrl" aria-label="Sortare">
+              <option value="price_asc">Preț crescător</option>
+              <option value="alerts_first">Sub prag primele</option>
+              <option value="price_desc">Preț descrescător</option>
+              <option value="newest">Cele mai noi</option>
+            </select>
+
+            <label class="toggle-chip" id="onlyAlertsChip">
+              <input type="checkbox" id="filterOnlyAlerts" />
+              <span>🔥 Doar sub prag</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="listings-grid" id="listingsGrid"></div>
+    </section>
+
+    <!-- 4. Source Health & Alert History -->
+    <section class="section">
+      <div class="bottom-grid">
+        <div class="card panel">
+          <div class="panel-head">
+            <h3>Starea surselor monitorizate</h3>
+            <span class="panel-sub" id="sourcesCountSub">17 site-uri live + Facebook Marketplace</span>
+          </div>
+          <div class="source-list" id="sourceHealthList"></div>
+        </div>
+
+        <div class="card panel">
+          <div class="panel-head">
+            <h3>Istoric alerte &amp; emailuri</h3>
+            <span class="panel-sub">Deduplicate automat (re-alertă doar la scădere suplimentară)</span>
+          </div>
+          <div class="alert-history-list" id="alertHistoryList"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Settings & Email Alerts Modal -->
+  <div class="modal-backdrop hidden" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="settingsModalTitle">Setări, Praguri &amp; Alerte Email</h2>
+        <button class="btn btn-icon-only" data-close-modal="settingsModal" aria-label="Închide">✕</button>
+      </div>
+
+      <div class="modal-tabs" id="settingsTabs">
+        <button class="modal-tab active" data-tab="email">📧 Alerte Email</button>
+        <button class="modal-tab" data-tab="thresholds">🎯 Praguri Preț</button>
+        <button class="modal-tab" data-tab="sources">🌐 Surse &amp; Scanare</button>
+      </div>
+
+      <form id="settingsForm" class="modal-body">
+        <!-- Tab 1: Email -->
+        <div class="tab-pane active" data-pane="email">
+          <label class="switch-row">
+            <div>
+              <strong>Activează notificările pe email</strong>
+              <p class="field-help">Primești automat un email când apare un produs sub pragurile setate.</p>
+            </div>
+            <input type="checkbox" id="cfgEmailEnabled" />
+          </label>
+
+          <div class="form-grid">
+            <div class="field field-full">
+              <label for="cfgEmailTo">Adresa ta de email (destinatar)</label>
+              <input type="email" id="cfgEmailTo" class="input-ctrl" placeholder="nume@gmail.com" />
+            </div>
+
+            <div class="field">
+              <label for="cfgSmtpPreset">Furnizor SMTP</label>
+              <select id="cfgSmtpPreset" class="input-ctrl">
+                <option value="gmail">Gmail (recomandat · App Password)</option>
+                <option value="outlook">Outlook / Hotmail</option>
+                <option value="custom">SMTP Personalizat (Brevo, Resend etc.)</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="cfgSmtpUser">Email expeditor (SMTP User)</label>
+              <input type="email" id="cfgSmtpUser" class="input-ctrl" placeholder="contul-tau@gmail.com" />
+            </div>
+
+            <div class="field field-full">
+              <label for="cfgSmtpPass">Parolă aplicație (App Password) <span id="passSavedTag" class="tag-saved hidden">✓ Salvată</span></label>
+              <input type="password" id="cfgSmtpPass" class="input-ctrl" placeholder="Lasă gol pentru a păstra parola salvată" autocomplete="new-password" />
+            </div>
+
+            <div class="field custom-smtp-only hidden">
+              <label for="cfgSmtpHost">SMTP Host</label>
+              <input type="text" id="cfgSmtpHost" class="input-ctrl" placeholder="smtp.gmail.com" />
+            </div>
+            <div class="field custom-smtp-only hidden">
+              <label for="cfgSmtpPort">SMTP Port</label>
+              <input type="number" id="cfgSmtpPort" class="input-ctrl" value="465" />
+            </div>
+          </div>
+
+          <div class="info-box">
+            <strong>Cum obții o parolă de aplicație Gmail în 30 secunde:</strong>
+            <ol>
+              <li>Intră pe <strong>myaccount.google.com/apppasswords</strong> (necesită Verificare în 2 pași activă).</li>
+              <li>Creează o parolă cu numele <code>AppleRadar</code> și copiază codul de 16 caractere în câmpul de mai sus.</li>
+              <li>Apasă <strong>„Trimite email de test”</strong> ca să confirmi instant că ajunge în inbox!</li>
+            </ol>
+          </div>
+
+          <div class="test-email-row">
+            <button type="button" class="btn btn-secondary" id="btnSendTestEmail">✉ Trimite email de test</button>
+            <span id="testEmailFeedback" class="feedback-text"></span>
+          </div>
+        </div>
+
+        <!-- Tab 2: Thresholds -->
+        <div class="tab-pane" data-pane="thresholds">
+          <p class="field-help" style="margin-bottom: 14px;">
+            Vei primi alertă pe email pentru orice ofertă cu prețul <strong>strict mai mic</strong> decât pragul configurat (în RON).
+          </p>
+          <div class="thresholds-grid" id="thresholdsInputs"></div>
+
+          <div class="form-grid" style="margin-top: 16px;">
+            <div class="field">
+              <label for="cfgMinDrop">Scădere minimă pt. re-alertare (RON)</label>
+              <input type="number" id="cfgMinDrop" class="input-ctrl" min="10" step="10" value="50" />
+            </div>
+            <div class="field">
+              <label for="cfgEurToRon">Curs conversie EUR → RON</label>
+              <input type="number" id="cfgEurToRon" class="input-ctrl" min="4" max="6" step="0.01" value="4.98" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Sources & Schedule -->
+        <div class="tab-pane" data-pane="sources">
+          <label class="switch-row">
+            <div>
+              <strong>Strict București pe site-urile Peer-to-Peer (OLX, Publi24, Vinted)</strong>
+              <p class="field-help">Respinge automat vânzătorii din alte orașe sau suburbii Ilfov; pe Vinted verifică profilul fiecărui vânzător.</p>
+            </div>
+            <input type="checkbox" id="cfgStrictBucharest" checked />
+          </label>
+
+          <label class="switch-row">
+            <div>
+              <strong>Exclude AirPods Pro 3 de pe site-urile Peer-to-Peer</strong>
+              <p class="field-help">Evită replicile/fake-urile de pe OLX, Publi24, Vinted și Facebook — caută AirPods doar în magazine refurbished și amanete verificate.</p>
+            </div>
+            <input type="checkbox" id="cfgExcludeP2pAirpods" checked />
+          </label>
+
+          <label class="switch-row">
+            <div>
+              <strong>Scanare automată în fundal</strong>
+              <p class="field-help">Verifică periodic toate site-urile active cât timp serverul rulează.</p>
+            </div>
+            <input type="checkbox" id="cfgAutoScan" checked />
+          </label>
+
+          <div class="form-grid" style="margin: 12px 0 16px;">
+            <div class="field">
+              <label for="cfgMinStorage">Capacitate minimă iPhone</label>
+              <select id="cfgMinStorage" class="input-ctrl">
+                <option value="256">Minim 256 GB (recomandat)</option>
+                <option value="512">Minim 512 GB</option>
+                <option value="1024">Minim 1 TB</option>
+                <option value="0">Orice capacitate (include 128 GB)</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="cfgScanInterval">Interval scanare automată</label>
+              <select id="cfgScanInterval" class="input-ctrl">
+                <option value="5">La fiecare 5 minute</option>
+                <option value="15">La fiecare 15 minute (recomandat)</option>
+                <option value="30">La fiecare 30 minute</option>
+                <option value="60">La fiecare 60 minute</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Site-uri active la scanare</label>
+            <div class="sources-check-grid" id="sourcesCheckGrid"></div>
+          </div>
+
+          <div style="margin-top: 16px;">
+            <button type="button" class="btn btn-ghost btn-sm" id="btnRestoreDismissed">↺ Restaurează anunțurile ascunse manual</button>
+          </div>
+        </div>
+
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" data-close-modal="settingsModal">Anulează</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveSettings">Salvează setările</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Manual Deal Modal -->
+  <div class="modal-backdrop hidden" id="manualModal" role="dialog" aria-modal="true" aria-labelledby="manualModalTitle">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <h2 id="manualModalTitle">Adaugă ofertă manual (ex. Facebook Marketplace)</h2>
+        <button class="btn btn-icon-only" data-close-modal="manualModal" aria-label="Închide">✕</button>
+      </div>
+      <form id="manualForm" class="modal-body">
+        <div class="form-grid">
+          <div class="field field-full">
+            <label for="manProduct">Model</label>
+            <select id="manProduct" class="input-ctrl" required></select>
+          </div>
+          <div class="field field-full">
+            <label for="manTitle">Titlu ofertă</label>
+            <input type="text" id="manTitle" class="input-ctrl" placeholder="ex. iPhone 16 Pro 256GB Natural Titanium 95% baterie" required />
+          </div>
+          <div class="field">
+            <label for="manPrice">Preț (RON)</label>
+            <input type="number" id="manPrice" class="input-ctrl" placeholder="2500" min="100" required />
+          </div>
+          <div class="field">
+            <label for="manSource">Sursă</label>
+            <select id="manSource" class="input-ctrl">
+              <option value="facebook">Facebook Marketplace</option>
+              <option value="olx">OLX.ro</option>
+              <option value="vinted">Vinted.ro</option>
+              <option value="totalconvert">TotalConvert / Amanet</option>
+            </select>
+          </div>
+          <div class="field field-full">
+            <label for="manLocation">Locație vânzător</label>
+            <input type="text" id="manLocation" class="input-ctrl" value="București" />
+          </div>
+          <div class="field field-full">
+            <label for="manUrl">Link anunț</label>
+            <input type="url" id="manUrl" class="input-ctrl" placeholder="https://www.facebook.com/marketplace/item/..." required />
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" data-close-modal="manualModal">Anulează</button>
+          <button type="submit" class="btn btn-primary">Adaugă oferta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+name: AppleRadar RO — Scanare 24/7, Alerte Email & GitHub Pages
+
+on:
+  schedule:
+    # Rulează 100% GRATUIT 24/7 la fiecare 20 de minute (chiar și cu PC-ul oprit!)
+    - cron: '*/20 * * * *'
+  push:
+    branches: ['main']
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: appleradar-pages
+  cancel-in-progress: false
+
+jobs:
+  scan-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: Restore SQLite alert deduplication & Vinted cache
+        uses: actions/cache@v4
+        with:
+          path: data
+          key: appleradar-db-${{ github.run_id }}
+          restore-keys: |
+            appleradar-db-
+
+      - name: Scan all 17 Romanian sites, send email alerts & build live dashboard
+        env:
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+          SMTP_PRESET: ${{ secrets.SMTP_PRESET || 'gmail' }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST || 'smtp.gmail.com' }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT || '465' }}
+          SMTP_SECURE: ${{ secrets.SMTP_SECURE || 'true' }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          THRESHOLD_IPHONE_16_PRO: ${{ vars.THRESHOLD_IPHONE_16_PRO || '2600' }}
+          THRESHOLD_IPHONE_16_PRO_MAX: ${{ vars.THRESHOLD_IPHONE_16_PRO_MAX || '2600' }}
+          THRESHOLD_IPHONE_17: ${{ vars.THRESHOLD_IPHONE_17 || '2600' }}
+          THRESHOLD_IPHONE_17_PRO: ${{ vars.THRESHOLD_IPHONE_17_PRO || '3200' }}
+          THRESHOLD_IPHONE_17_PRO_MAX: ${{ vars.THRESHOLD_IPHONE_17_PRO_MAX || '3200' }}
+          THRESHOLD_AIRPODS_PRO_3: ${{ vars.THRESHOLD_AIRPODS_PRO_3 || '700' }}
+          MIN_IPHONE_STORAGE_GB: ${{ vars.MIN_IPHONE_STORAGE_GB || '256' }}
+        run: npm run check-once
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static dashboard artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy live site to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: appleradar-ro
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 3456
+      - key: DATA_DIR
+        value: /app/data
+      - key: ALERT_EMAIL_TO
+        sync: false
+      - key: SMTP_PRESET
+        value: gmail
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
