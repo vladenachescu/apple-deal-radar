@@ -57,6 +57,7 @@ jobs:
           THRESHOLD_IPHONE_17_PRO_MAX: ${{ vars.THRESHOLD_IPHONE_17_PRO_MAX || '3200' }}
           THRESHOLD_AIRPODS_PRO_3: ${{ vars.THRESHOLD_AIRPODS_PRO_3 || '700' }}
           MIN_IPHONE_STORAGE_GB: ${{ vars.MIN_IPHONE_STORAGE_GB || '256' }}
+          MAX_P2P_AGE_DAYS: ${{ vars.MAX_P2P_AGE_DAYS || '7' }}
         run: npm run check-once
 
       - name: Setup GitHub Pages

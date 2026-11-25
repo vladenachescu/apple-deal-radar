@@ -5,6 +5,7 @@ import {
   parsePriceToRon,
   extractSpecs,
   isPriceSane,
+  parseRomanianDate,
 } from '../classifier.js';
 
 // AirPods removed from P2P (too many fakes). Added dedicated 256GB/512GB queries for iPhone 16 Pro!
@@ -93,6 +94,13 @@ export async function scrapeOlx(settings) {
         .filter(Boolean)
         .join(', ') || locPath;
 
+      // Most recent activity timestamp: lastRefreshTime / pushupTime / createdTime
+      const candidateDates = [ad.lastRefreshTime, ad.pushupTime, ad.createdTime]
+        .map((d) => parseRomanianDate(d))
+        .filter(Boolean)
+        .sort();
+      const postedAt = candidateDates.pop() || null;
+
       const id = `olx:${ad.id}`;
       const existing = foundMap.get(id);
       if (!existing || parsed.priceRon < existing.priceRon) {
@@ -113,6 +121,7 @@ export async function scrapeOlx(settings) {
           battery: specs.battery,
           condition: specs.condition,
           hasWarranty: specs.hasWarranty,
+          postedAt,
         });
       }
     }

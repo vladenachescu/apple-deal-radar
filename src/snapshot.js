@@ -8,7 +8,7 @@ import {
   getAllSourceStatuses,
   getAlertHistory,
 } from './db.js';
-import { meetsMinStorage } from './classifier.js';
+import { meetsMinStorage, isWithinMaxAgeDays } from './classifier.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.join(__dirname, '..');
@@ -16,9 +16,13 @@ const ROOT_DIR = path.join(__dirname, '..');
 export function filterValidListings(rows, settings) {
   const minGb = Number(settings.minIphoneStorageGb ?? 256);
   const excludeP2pAirpods = settings.excludeP2pAirpods !== false;
+  const maxP2pAgeDays = Number(settings.maxP2pAgeDays ?? 7);
 
   return rows.filter((row) => {
     if (excludeP2pAirpods && row.product_id === 'airpods-pro-3' && row.source_type === 'p2p') {
+      return false;
+    }
+    if (row.source_type === 'p2p' && maxP2pAgeDays > 0 && !isWithinMaxAgeDays(row.posted_at, maxP2pAgeDays)) {
       return false;
     }
     const check = meetsMinStorage(
@@ -78,6 +82,7 @@ export function computeDashboardPayload({ scanState = {}, nextScanAt = null, pub
       condition: row.condition,
       hasWarranty: Boolean(row.has_warranty),
       isManual: Boolean(row.is_manual),
+      postedAt: row.posted_at || null,
       firstSeenAt: row.first_seen_at,
       lastSeenAt: row.last_seen_at,
       thresholdRon: threshold,

@@ -7,6 +7,7 @@ import {
   extractSpecs,
   isPriceSane,
   normalizeText,
+  parseRomanianDate,
 } from '../classifier.js';
 import { getCachedVintedSeller, cacheVintedSeller } from '../db.js';
 
@@ -38,11 +39,22 @@ const VINTED_SEARCHES = [
 
 async function verifyVintedItemBucharest(itemUrl, strict) {
   const itemRes = await fetchText(itemUrl, { timeoutMs: 12000 });
-  if (!itemRes.ok) return { isBucharest: false, location: null };
+  if (!itemRes.ok) return { isBucharest: false, location: null, postedAt: null, extraStorage: null };
+
+  // Extract upload age ("Încărcat acum o zi" / "acum 3 zile") and storage from item details
+  const $i = cheerio.load(itemRes.text);
+  $i('script, style').remove();
+  const detailsText = $i('[data-testid*="item-details"], [class*="details-list"]').text().replace(/\s+/g, ' ');
+  const agoMatch =
+    detailsText.match(/Încărcat\s*(acum\s+(?:un|o|\d+)\s+\S+)/i) ||
+    detailsText.match(/(acum\s+(?:un|o|\d+)\s+(?:minut\w*|or\w*|zi\w*|săptămân\w*|lun\w*))/i);
+  const postedAt = agoMatch ? parseRomanianDate(agoMatch[1]) : null;
+  const storMatch = detailsText.match(/Capacitate\s*de\s*stocare\s*(\d{3,4}\s*GB|\d\s*TB)/i);
+  const extraStorage = storMatch ? storMatch[1].replace(/\s+/g, '').toUpperCase() : null;
 
   // Extract member profile link from item HTML
   const memberMatch = itemRes.text.match(/\/member\/(\d+)/);
-  if (!memberMatch) return { isBucharest: false, location: null };
+  if (!memberMatch) return { isBucharest: false, location: null, postedAt, extraStorage };
   const memberId = memberMatch[1];
 
   // Check SQLite cache first so we don't repeatedly hit the same seller profile
@@ -51,11 +63,13 @@ async function verifyVintedItemBucharest(itemUrl, strict) {
     return {
       isBucharest: strict ? isBucharestLocation(cached.location, true) : cached.isBucharest,
       location: cached.location,
+      postedAt,
+      extraStorage,
     };
   }
 
   const profileRes = await fetchText(`https://www.vinted.ro/member/${memberId}`, { timeoutMs: 12000 });
-  if (!profileRes.ok) return { isBucharest: false, location: null };
+  if (!profileRes.ok) return { isBucharest: false, location: null, postedAt, extraStorage };
 
   const $p = cheerio.load(profileRes.text);
   let loc = $p('[data-testid="profile-location-info--content"]').first().text().replace(/\s+/g, ' ').trim();
@@ -66,7 +80,7 @@ async function verifyVintedItemBucharest(itemUrl, strict) {
 
   const okBuc = isBucharestLocation(loc, true);
   cacheVintedSeller(memberId, loc, okBuc);
-  return { isBucharest: strict ? okBuc : isBucharestLocation(loc, false), location: loc };
+  return { isBucharest: strict ? okBuc : isBucharestLocation(loc, false), location: loc, postedAt, extraStorage };
 }
 
 export async function scrapeVinted(settings) {
@@ -173,7 +187,9 @@ export async function scrapeVinted(settings) {
     if (check.isBucharest) {
       verifiedItems.push({
         ...cand,
+        storage: cand.storage || check.extraStorage || null,
         location: check.location || 'București, România',
+        postedAt: check.postedAt || null,
       });
     }
   });

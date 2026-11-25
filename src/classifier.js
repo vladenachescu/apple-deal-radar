@@ -360,3 +360,111 @@ export function isPriceSane(productId, priceRon) {
   if (!product || !Number.isFinite(priceRon)) return false;
   return priceRon >= product.minSanityPrice && priceRon <= product.maxSanityPrice;
 }
+
+const RO_MONTHS = {
+  ian: 0, ianuarie: 0,
+  feb: 1, februarie: 1,
+  mar: 2, martie: 2,
+  apr: 3, aprilie: 3,
+  mai: 4,
+  iun: 5, iunie: 5,
+  iul: 6, iulie: 6,
+  aug: 7, august: 7,
+  sep: 8, sept: 8, septembrie: 8,
+  oct: 9, octombrie: 9,
+  noi: 10, nov: 10, noiembrie: 10,
+  dec: 11, decembrie: 11,
+};
+
+/**
+ * Parses ISO timestamps, Romanian relative strings ("azi", "ieri", "acum 3 zile", "acum o zi",
+ * "acum 12 ore", "acum 2 saptamani") and Romanian day-month strings ("24 noiembrie") into ISO date strings.
+ */
+export function parseRomanianDate(raw, fallbackYyyymmdd = null, nowMs = Date.now()) {
+  if (raw) {
+    const str = String(raw).trim();
+
+    // 1. ISO-8601 / native Date string (e.g. OLX "2026-11-24T12:41:55+02:00")
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+      const ts = Date.parse(str);
+      if (Number.isFinite(ts)) return new Date(ts).toISOString();
+    }
+
+    const norm = normalizeText(str);
+
+    // Publi24 promoted placeholder "1 ianuarie" -> prefer S3 fallback if available
+    if (norm === '1 ianuarie' && fallbackYyyymmdd) {
+      return parseYyyymmdd(fallbackYyyymmdd);
+    }
+
+    // 2. "azi" / "astazi"
+    if (/\b(?:azi|astazi)\b/.test(norm)) {
+      const d = new Date(nowMs);
+      const hm = norm.match(/(\d{1,2}):(\d{2})/);
+      if (hm) d.setHours(Number(hm[1]), Number(hm[2]), 0, 0);
+      return d.toISOString();
+    }
+
+    // 3. "ieri"
+    if (/\bieri\b/.test(norm)) {
+      const d = new Date(nowMs - 24 * 3600 * 1000);
+      const hm = norm.match(/(\d{1,2}):(\d{2})/);
+      if (hm) d.setHours(Number(hm[1]), Number(hm[2]), 0, 0);
+      return d.toISOString();
+    }
+
+    // 4. Relative Romanian phrases ("acum 12 ore", "acum o zi", "acum 3 zile", "acum 2 saptamani", "acum o luna")
+    const relMatch = norm.match(
+      /acum\s+(un|o|\d+)\s+(secund|minut|or|zi|zile|saptaman|lun|an)/
+    );
+    if (relMatch) {
+      const qty = relMatch[1] === 'un' || relMatch[1] === 'o' ? 1 : Number(relMatch[1]);
+      const unit = relMatch[2];
+      let deltaMs = 0;
+      if (unit.startsWith('secund')) deltaMs = qty * 1000;
+      else if (unit.startsWith('minut')) deltaMs = qty * 60 * 1000;
+      else if (unit.startsWith('or')) deltaMs = qty * 3600 * 1000;
+      else if (unit.startsWith('zi')) deltaMs = qty * 24 * 3600 * 1000;
+      else if (unit.startsWith('saptaman')) deltaMs = qty * 7 * 24 * 3600 * 1000;
+      else if (unit.startsWith('lun')) deltaMs = qty * 30 * 24 * 3600 * 1000;
+      else if (unit.startsWith('an')) deltaMs = qty * 365 * 24 * 3600 * 1000;
+      return new Date(nowMs - deltaMs).toISOString();
+    }
+
+    // 5. Day + Romanian month ("24 noiembrie", "3 octombrie 2026")
+    const dmMatch = norm.match(/\b(\d{1,2})\s+([a-z]{3,12})(?:\s+(20\d{2}))?\b/);
+    if (dmMatch && RO_MONTHS[dmMatch[2]] !== undefined) {
+      const day = Number(dmMatch[1]);
+      const month = RO_MONTHS[dmMatch[2]];
+      const now = new Date(nowMs);
+      let year = dmMatch[3] ? Number(dmMatch[3]) : now.getFullYear();
+      let candidate = new Date(year, month, day, 12, 0, 0);
+      // If date is > 2 days in the future without explicit year, it was last year
+      if (!dmMatch[3] && candidate.getTime() > nowMs + 2 * 24 * 3600 * 1000) {
+        candidate = new Date(year - 1, month, day, 12, 0, 0);
+      }
+      if (!Number.isNaN(candidate.getTime())) return candidate.toISOString();
+    }
+  }
+
+  if (fallbackYyyymmdd) {
+    return parseYyyymmdd(fallbackYyyymmdd);
+  }
+  return null;
+}
+
+function parseYyyymmdd(str) {
+  const m = String(str).match(/^(20\d{2})(\d{2})(\d{2})$/);
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+export function isWithinMaxAgeDays(postedAtIso, maxDays = 7, nowMs = Date.now()) {
+  if (!maxDays || maxDays <= 0) return true;
+  if (!postedAtIso) return true; // Only reject when we have a date proving it's stale
+  const ts = Date.parse(postedAtIso);
+  if (!Number.isFinite(ts)) return true;
+  const ageMs = nowMs - ts;
+  return ageMs <= maxDays * 24 * 3600 * 1000;
+}

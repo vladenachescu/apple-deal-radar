@@ -17,7 +17,7 @@ import { scrapeBsgmag } from './bsgmag.js';
 import { scrapeTopAmanet } from './topamanet.js';
 import { scrapeAmanetBerceni } from './amanetberceni.js';
 import { scrapeFaneAmanet } from './faneamanet.js';
-import { meetsMinStorage } from '../classifier.js';
+import { meetsMinStorage, isWithinMaxAgeDays } from '../classifier.js';
 import {
   getSettings,
   upsertSourceListings,
@@ -59,10 +59,12 @@ export const scanState = {
 function applyGlobalQualityRules(items, settings) {
   const minGb = Number(settings.minIphoneStorageGb ?? 256);
   const excludeP2pAirpods = settings.excludeP2pAirpods !== false;
+  const maxP2pAgeDays = Number(settings.maxP2pAgeDays ?? 7);
 
   const filtered = [];
   let droppedStorage = 0;
   let droppedP2pAirpods = 0;
+  let droppedStaleP2p = 0;
 
   for (const item of items) {
     // 1. Block P2P AirPods Pro 3 (too many fake clones on OLX/Publi24/Vinted/FB)
@@ -71,7 +73,13 @@ function applyGlobalQualityRules(items, settings) {
       continue;
     }
 
-    // 2. Enforce minimum iPhone storage (default ≥ 256GB)
+    // 2. Enforce freshness filter on P2P listings (default ≤ 7 days since posted/refreshed)
+    if (item.sourceType === 'p2p' && maxP2pAgeDays > 0 && !isWithinMaxAgeDays(item.postedAt, maxP2pAgeDays)) {
+      droppedStaleP2p++;
+      continue;
+    }
+
+    // 3. Enforce minimum iPhone storage (default ≥ 256GB)
     const storageCheck = meetsMinStorage(
       item.productId,
       item.title,
@@ -90,7 +98,7 @@ function applyGlobalQualityRules(items, settings) {
     });
   }
 
-  return { filtered, droppedStorage, droppedP2pAirpods };
+  return { filtered, droppedStorage, droppedP2pAirpods, droppedStaleP2p };
 }
 
 export async function runFullScan(requestedSources = null) {
@@ -121,13 +129,16 @@ export async function runFullScan(requestedSources = null) {
         try {
           const fn = SCRAPER_REGISTRY[sourceId];
           const result = await fn(settings);
-          const { filtered, droppedStorage } = applyGlobalQualityRules(result.items || [], settings);
+          const { filtered, droppedStorage, droppedStaleP2p } = applyGlobalQualityRules(result.items || [], settings);
           const durationMs = Date.now() - start;
 
           upsertSourceListings(sourceId, filtered);
 
-          const storageNote = droppedStorage > 0 ? ` (excluse ${droppedStorage} sub 256GB)` : '';
-          const msg = `${result.message || 'Scanare completă'}${storageNote}`;
+          const notes = [];
+          if (droppedStorage > 0) notes.push(`${droppedStorage} sub 256GB`);
+          if (droppedStaleP2p > 0) notes.push(`${droppedStaleP2p} > ${settings.maxP2pAgeDays ?? 7} zile`);
+          const extraNote = notes.length > 0 ? ` (excluse: ${notes.join(', ')})` : '';
+          const msg = `${result.message || 'Scanare completă'}${extraNote}`;
 
           updateSourceStatus(sourceId, {
             status: 'ok',

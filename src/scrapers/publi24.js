@@ -6,6 +6,7 @@ import {
   parsePriceToRon,
   extractSpecs,
   isPriceSane,
+  parseRomanianDate,
 } from '../classifier.js';
 
 // AirPods removed from P2P (too many fakes). Targeted ≥256GB queries for iPhone 16 Pro.
@@ -60,6 +61,7 @@ export async function scrapePubli24(settings) {
       const desc = $el.find('.article-description').text().replace(/\s+/g, ' ').trim();
       const locationText = $el.find('.article-location').text().replace(/\s+/g, ' ').trim();
       const priceText = $el.find('.article-price').text().replace(/\s+/g, ' ').trim();
+      const dateText = $el.find('.article-date').text().replace(/\s+/g, ' ').trim();
 
       // STRICT Bucharest filter for P2P
       if (!isBucharestLocation(locationText, strict)) return;
@@ -74,6 +76,8 @@ export async function scrapePubli24(settings) {
       const img =
         $el.find('.art-img img').attr('data-src') ||
         $el.find('.art-img img').attr('src');
+      const imgYyyymmdd = (img || '').match(/\/(20\d{6})\//)?.[1] || null;
+      const postedAt = parseRomanianDate(dateText, imgYyyymmdd);
 
       const articleId = $el.attr('data-articleid') || href.split('/').pop()?.replace('.html', '') || href;
       const id = `publi24:${articleId}`;
@@ -97,6 +101,7 @@ export async function scrapePubli24(settings) {
           battery: specs.battery,
           condition: specs.condition,
           hasWarranty: specs.hasWarranty,
+          postedAt,
         });
       }
     });

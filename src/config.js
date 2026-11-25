@@ -1,5 +1,6 @@
 export const EUR_TO_RON_DEFAULT = Number(process.env.EUR_TO_RON) || 4.98;
 export const MIN_IPHONE_STORAGE_GB = 256;
+export const MAX_P2P_AGE_DAYS_DEFAULT = 7;
 
 // Models where Apple's minimum factory capacity is ALREADY 256GB (no 128GB SKU exists)
 export const FACTORY_MIN_256_MODELS = new Set([
@@ -323,6 +324,10 @@ export function getDefaultSettings() {
       process.env.MIN_IPHONE_STORAGE_GB !== undefined
         ? Number(process.env.MIN_IPHONE_STORAGE_GB)
         : MIN_IPHONE_STORAGE_GB,
+    maxP2pAgeDays:
+      process.env.MAX_P2P_AGE_DAYS !== undefined
+        ? Number(process.env.MAX_P2P_AGE_DAYS)
+        : MAX_P2P_AGE_DAYS_DEFAULT,
     strictBucharestOnly: true,
     excludeP2pAirpods: true,
     scanIntervalMinutes: 15,

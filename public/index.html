@@ -329,7 +329,19 @@
             </div>
 
             <div class="field">
-              <label for="cfgScanInterval">Interval scanare automată</label>
+              <label for="cfgMaxP2pAge">Vechime maximă anunțuri P2P</label>
+              <select id="cfgMaxP2pAge" class="input-ctrl">
+                <option value="1">Ultimele 24 ore</option>
+                <option value="3">Cel mult 3 zile</option>
+                <option value="7">Cel mult 7 zile (recomandat)</option>
+                <option value="14">Cel mult 14 zile</option>
+                <option value="30">Cel mult 30 zile</option>
+                <option value="0">Orice vechime</option>
+              </select>
+            </div>
+
+            <div class="field field-full">
+              <label for="cfgScanInterval">Interval scanare automată (local)</label>
               <select id="cfgScanInterval" class="input-ctrl">
                 <option value="5">La fiecare 5 minute</option>
                 <option value="15">La fiecare 15 minute (recomandat)</option>

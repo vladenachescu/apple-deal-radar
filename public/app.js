@@ -45,6 +45,18 @@ function fmtDateTime(iso) {
   }
 }
 
+function fmtRelativeAge(iso) {
+  if (!iso) return null;
+  const ts = Date.parse(iso);
+  if (!Number.isFinite(ts)) return null;
+  const diffHours = Math.max(0, Math.floor((Date.now() - ts) / 3600000));
+  if (diffHours < 1) return 'Azi (< 1h)';
+  if (diffHours < 24) return `Acum ${diffHours}h`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return 'Ieri';
+  return `Acum ${diffDays} zile`;
+}
+
 function escapeHtml(str = '') {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -108,7 +120,9 @@ function renderTopbar() {
       : 'Configurează adresa de email și parola SMTP pentru alerte';
 
   const strict = settings.strictBucharestOnly !== false;
-  $('#bucharestBadge').textContent = strict ? '📍 P2P: Strict București' : '📍 P2P: București + Ilfov';
+  const maxAge = Number(settings.maxP2pAgeDays ?? 7);
+  const ageSuffix = maxAge > 0 ? ` · ≤ ${maxAge} ${maxAge === 1 ? 'zi' : 'zile'}` : '';
+  $('#bucharestBadge').textContent = (strict ? '📍 P2P: București' : '📍 P2P: Buc + Ilfov') + ageSuffix;
 
   const minGb = Number(settings.minIphoneStorageGb ?? 256);
   $('#storageBadge').textContent = minGb >= 1024 ? `💾 iPhone ≥ ${minGb / 1024}TB` : minGb > 0 ? `💾 iPhone ≥ ${minGb}GB` : '💾 Orice GB';
@@ -371,7 +385,7 @@ function getFilteredListings() {
       return a.priceRon - b.priceRon;
     });
   } else if (f.sort === 'newest') {
-    list.sort((a, b) => new Date(b.firstSeenAt) - new Date(a.firstSeenAt));
+    list.sort((a, b) => new Date(b.postedAt || b.firstSeenAt) - new Date(a.postedAt || a.firstSeenAt));
   }
 
   return list;
@@ -408,6 +422,10 @@ function renderListings() {
         specTags.push(
           `<span class="spec-tag ${isP2p ? 'spec-tag--loc' : ''}">${isP2p ? '📍 ' : ''}${escapeHtml(item.location)}</span>`
         );
+      }
+      if (item.sourceType === 'p2p' && item.postedAt) {
+        const ageLabel = fmtRelativeAge(item.postedAt);
+        if (ageLabel) specTags.push(`<span class="spec-tag" title="Postat / actualizat: ${escapeHtml(fmtDateTime(item.postedAt))}">🕒 ${escapeHtml(ageLabel)}</span>`);
       }
       if (item.storage) specTags.push(`<span class="spec-tag">${escapeHtml(item.storage)}</span>`);
       if (item.battery) specTags.push(`<span class="spec-tag">🔋 ${escapeHtml(item.battery)}</span>`);
@@ -774,6 +792,7 @@ function populateSettingsForm() {
   $('#cfgStrictBucharest').checked = settings.strictBucharestOnly !== false;
   $('#cfgExcludeP2pAirpods').checked = settings.excludeP2pAirpods !== false;
   $('#cfgMinStorage').value = String(settings.minIphoneStorageGb ?? 256);
+  $('#cfgMaxP2pAge').value = String(settings.maxP2pAgeDays ?? 7);
   $('#cfgAutoScan').checked = settings.autoScanEnabled !== false;
   $('#cfgScanInterval').value = String(settings.scanIntervalMinutes || 15);
 
@@ -862,6 +881,7 @@ $('#settingsForm').addEventListener('submit', async (e) => {
         strictBucharestOnly: $('#cfgStrictBucharest').checked,
         excludeP2pAirpods: $('#cfgExcludeP2pAirpods').checked,
         minIphoneStorageGb: Number($('#cfgMinStorage').value),
+        maxP2pAgeDays: Number($('#cfgMaxP2pAge').value),
         autoScanEnabled: $('#cfgAutoScan').checked,
         scanIntervalMinutes: Number($('#cfgScanInterval').value) || 15,
         eurToRon: Number($('#cfgEurToRon').value) || 4.98,

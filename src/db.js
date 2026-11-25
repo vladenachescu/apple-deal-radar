@@ -34,6 +34,7 @@ db.exec(`
     condition TEXT,
     has_warranty INTEGER DEFAULT 0,
     is_manual INTEGER DEFAULT 0,
+    posted_at TEXT,
     first_seen_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL,
     is_active INTEGER DEFAULT 1
@@ -86,6 +87,13 @@ db.exec(`
     value TEXT NOT NULL
   );
 `);
+
+// Safe migration for existing SQLite databases created before posted_at existed
+try {
+  db.exec('ALTER TABLE listings ADD COLUMN posted_at TEXT');
+} catch {
+  // Column already exists
+}
 
 export function getSettings() {
   const defaults = getDefaultSettings();
@@ -142,11 +150,11 @@ export function upsertSourceListings(sourceId, items) {
     INSERT INTO listings (
       id, source, source_type, product_id, title, price_ron, original_price, currency,
       previous_price_ron, url, image_url, location, storage, battery, condition, has_warranty,
-      is_manual, first_seen_at, last_seen_at, is_active
+      is_manual, posted_at, first_seen_at, last_seen_at, is_active
     ) VALUES (
       ?, ?, ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?, ?, ?, ?,
-      ?, ?, ?, 1
+      ?, ?, ?, ?, 1
     )
     ON CONFLICT(id) DO UPDATE SET
       title = excluded.title,
@@ -165,6 +173,7 @@ export function upsertSourceListings(sourceId, items) {
       battery = COALESCE(excluded.battery, listings.battery),
       condition = COALESCE(excluded.condition, listings.condition),
       has_warranty = excluded.has_warranty,
+      posted_at = COALESCE(excluded.posted_at, listings.posted_at),
       last_seen_at = excluded.last_seen_at,
       is_active = 1
   `);
@@ -196,6 +205,7 @@ export function upsertSourceListings(sourceId, items) {
         item.condition || null,
         item.hasWarranty ? 1 : 0,
         item.isManual ? 1 : 0,
+        item.postedAt || null,
         existing?.first_seen_at || now,
         now
       );
@@ -214,8 +224,8 @@ export function addManualListing(item) {
     INSERT INTO listings (
       id, source, source_type, product_id, title, price_ron, original_price, currency,
       previous_price_ron, url, image_url, location, storage, battery, condition, has_warranty,
-      is_manual, first_seen_at, last_seen_at, is_active
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'RON', NULL, ?, NULL, ?, ?, ?, ?, ?, 1, ?, ?, 1)
+      is_manual, posted_at, first_seen_at, last_seen_at, is_active
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'RON', NULL, ?, NULL, ?, ?, ?, ?, ?, 1, ?, ?, ?, 1)
   `).run(
     id,
     item.source || 'facebook',
@@ -230,6 +240,7 @@ export function addManualListing(item) {
     item.battery || null,
     item.condition || null,
     item.hasWarranty ? 1 : 0,
+    now,
     now,
     now
   );
